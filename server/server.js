@@ -5,8 +5,8 @@
 
 const net = require("net");
 const fs = require("fs");
-// const dotenv = require("dotenv");
-// dotenv.config();
+const dotenv = require("dotenv");
+dotenv.config();
 
 const fileExtensionSelector = (fileName) => {
   const fileExtension = fileName.split(".")[1] || "unknown";
@@ -33,29 +33,37 @@ const fileExtensionSelector = (fileName) => {
 };
 
 const onClientConnection = (socket) => {
-  console.log(`${socket.remoteAddress}:${socket.remotePort} connected`);
+  
+  console.log(`\n::${socket.remotePort}::`);
   socket.on("data", (data) => {
-    console.log(`Incoming request for file: ${data}`);
+    const fileName = data.toString();
+    console.log(` Incoming request for file: ${fileName}`);
 
-    const path = fileExtensionSelector(data.toString());
-    console.log(`Does file exist? ${fs.existsSync(path) ? "Yes" : "No"}`);
+    const path = fileExtensionSelector(fileName);
+    console.log(` File Exists: ${fs.existsSync(path) ? "Yes" : "No"}`);
 
     if (fs.existsSync(path)) {
-      console.log(`Sending file: ${data}`);
-      socket.write(fs.readFileSync(path, "utf8"));
+      console.log(` Sending file: ${fileName}`);
+      const contentType = path.split("/").pop().split(".")[1];
+      const responseHeader = `HTTP/1.1 200 OK\r\nContent-Type: application/${contentType}\r\n\r\n`;
+      socket.write(responseHeader);
+
+      const fileData = fs.readFileSync(path);
+      socket.write(fileData, "binary");
+      socket.end();
     } else {
-      socket.write(`path ${path} does not exist`);
+      socket.write(`HTTP/1.1 404 Not Found\r\n\r\n`);
     }
     socket.end();
   });
 
   socket.on("close", () => {
-    console.log(`${socket.remoteAddress}:${socket.remotePort} disconnected`);
+    console.log(`::${socket.remotePort}::`);
   });
 
   socket.on("error", (err) => {
     console.log(
-      `${socket.remoteAddress}:${sock.remotePort} Connection Error: ${err}`
+      `::${socket.remotePort} \nConnection Error: ${err}`
     );
   });
 };
@@ -64,5 +72,5 @@ const PORT = process.env.PORT || 8888;
 const server = net.createServer(onClientConnection);
 
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`\nServer listening on port ${PORT}`);
 });
